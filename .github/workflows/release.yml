@@ -1,0 +1,84 @@
+name: Release Realms Connect
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: Version to upload (e.g. 1.2.0)
+        required: true
+      changelog:
+        description: Changelog text for the mod page (dispatch runs have no release body)
+        required: false
+
+jobs:
+  package-and-upload:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set version
+        run: echo "VERSION=${{ github.event.release.tag_name || inputs.version }}" >> "$GITHUB_ENV"
+
+      - name: Package (no git artefacts)
+        run: |
+          git archive --format=zip --prefix="Realms Connect/" \
+            -o "Realms-Connect-${VERSION}.zip" HEAD
+
+      - name: Verify zip contents
+        run: |
+          unzip -l "Realms-Connect-${VERSION}.zip"
+          if unzip -l "Realms-Connect-${VERSION}.zip" | grep -E '\.git|\.github'; then
+            echo "Git artefacts found in zip" && exit 1
+          fi
+          unzip -l "Realms-Connect-${VERSION}.zip" | grep -q 'Realms Connect/Realms Connect.mod' \
+            || { echo "Missing Realms Connect.mod" && exit 1; }
+          unzip -l "Realms-Connect-${VERSION}.zip" | grep -q 'Realms Connect/info.json' \
+            || { echo "Missing info.json" && exit 1; }
+          unzip -l "Realms-Connect-${VERSION}.zip" | grep -q 'Realms Connect/bin/darktide-realms-connect.dll' \
+            || { echo "Missing native DLL (bin/darktide-realms-connect.dll)" && exit 1; }
+          if unzip -l "Realms-Connect-${VERSION}.zip" | grep -q '^ *l'; then
+            echo "Symlink entry in zip - a symlink-mode .mod boot-crashes the game" && exit 1
+          fi
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v7
+        with:
+          name: Realms-Connect-${{ env.VERSION }}
+          path: Realms-Connect-${{ env.VERSION }}.zip
+
+      - name: Resolve Nexus file_id (v2 GraphQL groupId)
+        if: ${{ !github.event.release.prerelease }}
+        run: |
+          FID=$(curl -sS -H "apikey: ${{ secrets.NEXUSMODS_APIKEY }}" -H "content-type: application/json" \
+            -X POST "https://api.nexusmods.com/v2/graphql" \
+            -d '{"query":"query{modFiles(modId:\"${{ vars.NEXUS_MOD_ID }}\",gameId:\"4943\"){primary category groupId}}"}' \
+            | jq -r '([.data.modFiles[]|select(.primary==1)]+[.data.modFiles[]|select(.category=="MAIN")])[0].groupId')
+          if [ -z "$FID" ] || [ "$FID" = "null" ]; then echo "no groupId" && exit 1; fi
+          echo "NEXUS_FILE_ID=$FID" >> "$GITHUB_ENV"
+
+      - name: Resolve Nexus global mod id (v3)
+        if: ${{ !github.event.release.prerelease }}
+        run: |
+          MID=$(curl -sS -H "apikey: ${{ secrets.NEXUSMODS_APIKEY }}" \
+            "https://api.nexusmods.com/v3/games/warhammer40kdarktide/mods/${{ vars.NEXUS_MOD_ID }}" \
+            | jq -r '.data.id')
+          if [ -z "$MID" ] || [ "$MID" = "null" ]; then echo "no global mod id" && exit 1; fi
+          echo "NEXUS_GLOBAL_MOD_ID=$MID" >> "$GITHUB_ENV"
+
+      - name: Upload to Nexus Mods
+        if: ${{ !github.event.release.prerelease }}
+        uses: Nexus-Mods/upload-action@v1.0.0-beta.10
+        with:
+          api_key: ${{ secrets.NEXUSMODS_APIKEY }}
+          file_id: ${{ env.NEXUS_FILE_ID }}
+          filename: Realms-Connect-${{ env.VERSION }}.zip
+          version: ${{ env.VERSION }}
+          display_name: Realms Connect ${{ env.VERSION }}
+          category: main
+          description: ${{ github.event.release.body || inputs.changelog }}
+          mod_id: ${{ env.NEXUS_GLOBAL_MOD_ID }}
+          changelog: ${{ github.event.release.body || inputs.changelog }}
+          update_mod_version: true
+          show_requirements_pop_up: true

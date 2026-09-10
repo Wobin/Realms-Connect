@@ -1,0 +1,6 @@
+*.tmp
+*.log
+Thumbs.db
+.DS_Store
+
+rc_diag_report.txt

@@ -1,0 +1,17 @@
+{
+	"name": "Realms Connect",
+	"description": "Friend-code matchmaking and NAT traversal for Realms servers.",
+	"version": "1.0.0",
+	"author": "Wobin",
+	"homepage": "https://www.nexusmods.com/warhammer40kdarktide/mods/1297",
+	"source": "https://github.com/Wobin/Realms-Connect",
+	"funding": {
+		"kofi": "https://ko-fi.com/wobin_dwonderdog"
+	},
+	"nexusId": "1297",
+	"order": {
+		"require": [ "Vox Manifold", "Realms" ],
+		"this_after": [],
+		"this_before": []
+	}
+}
