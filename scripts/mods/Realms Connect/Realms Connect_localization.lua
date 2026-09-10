@@ -33,7 +33,7 @@ return {
 		en = "Open",
 	},
 	rc_open_lobby_tooltip = {
-		en = "Broadcast this Realm for two minutes so friends can find it with \"Check friends for open lobbies\". It closes itself again afterwards. You do not need this for someone joining with your friend code, and it works anywhere, including the Mourningstar and the Psykhanium.",
+		en = "For two minutes, players who are not your friends, such as those in the same Mourningstar, can ask to join with your friend code. You are asked about each one. With Advertise mode Off, it also lets friends find this Realm with \"Check friends for open lobbies\".",
 	},
 	rc_open_lobby_echo = {
 		en = "Realms Connect: lobby open {seconds}s.",
@@ -42,7 +42,7 @@ return {
 		en = "Manual address",
 	},
 	join_needs_vox_manifold = {
-		en = "Realms Connect: Vox Manifold 2.2 or newer is required and was not found. Install the Vox Manifold folder from the same zip and add it to mod_load_order.txt above Realms Connect. A direct ip:port still works without it.",
+		en = "Realms Connect: Vox Manifold 2.2 or newer is required and was not found. Install it from Nexus and add it to mod_load_order.txt above Realms Connect. A direct ip:port still works without it.",
 	},
 	join_needs_a_session = {
 		en = "Realms Connect: wait until you are in the Mourningstar. Joining from the title screen is not possible.",
@@ -105,7 +105,7 @@ return {
 		en = "Advertise mode",
 	},
 	advertise_mode_tooltip = {
-		en = "Who is allowed to knock and get an automatic ack: Off refuses everyone, Friends allows your saved codes and platform friends, Open allows anyone whose account you are already watching. Open reveals your public address and a punch target to that wider set, so only use it if you understand that trade-off.",
+		en = "Who is allowed to knock: Off refuses everyone, Friends allows your saved codes, platform friends and party, Open also lets anyone whose account you are already watching ask to join. You are asked before a stranger is let in, and letting one in reveals your public address to them.",
 	},
 	advertise_mode_off = {
 		en = "Off",

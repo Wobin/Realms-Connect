@@ -1,7 +1,7 @@
 --[[
     Name: Realms Connect
     Author: Wobin
-    Date: 2026-09-03
+    Date: 2026-09-11
 --]]
 
 local type = type
@@ -101,8 +101,10 @@ function M.new(deps)
             return DECISION_REFUSE
         end
 
+        local known = saved_contains(ref) or is_friend(ref) == true or is_party(ref) == true
+
         if mode == MODE_FRIENDS then
-            if not saved_contains(ref) and not is_friend(ref) and not is_party(ref) then
+            if not known then
                 return DECISION_REFUSE
             end
         elseif mode ~= MODE_OPEN then
@@ -110,14 +112,14 @@ function M.new(deps)
         end
 
         if in_mission() == true then
-            if auto_accept_in_mission() then
+            if known and auto_accept_in_mission() then
                 return DECISION_ALLOW
             end
 
             return DECISION_REFUSE
         end
 
-        if not auto_accept_friends() then
+        if not known or not auto_accept_friends() then
             return DECISION_PROMPT
         end
 

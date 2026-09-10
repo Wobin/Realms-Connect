@@ -1,7 +1,7 @@
 --[[
     Name: Realms Connect
     Author: Wobin
-    Date: 2026-09-10
+    Date: 2026-09-11
 --]]
 
 local mod = get_mod("Realms Connect")
@@ -2431,7 +2431,7 @@ local function initialize()
         manifold = nil
         mod:error("[Realms Connect] the installed Vox Manifold is too old: it is missing " ..
             table_concat(missing, ", ") ..
-            ". Realms Connect needs Vox Manifold 2.2 or newer, which ships in the same zip. " ..
+            ". Realms Connect needs Vox Manifold 2.2 or newer, from Nexus. " ..
             "Presence matchmaking is disabled for this session; a direct ip:port still works.")
     end
 
