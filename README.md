@@ -40,9 +40,9 @@ Both the host and the joiner need all of the above installed, and must use the s
 **Friend codes.** Realms Connect uses your normal Darktide friend code. It is also shown at the top of the lobby's Requests tab while hosting; click it to copy it.
 
 - The joiner needs the host's friend code.
-- The host needs the joiner's friend code saved in Esc > Mods > Realms Connect > *Saved friend codes*. This is not needed if the joiner is already on the host's Darktide friends list or in the host's party.
+- The host needs the joiner's friend code saved in Esc > Mods > Realms Connect > *Saved friend codes*. This is not needed if the joiner is on the host's Darktide friends list, in the host's party, or among the last eight players the host has connected with through Realms Connect.
 
-**Hosting.** Start a Realms server as normal. Friends (saved friend codes, Darktide friends and party members) are let in automatically while *Auto-accept friends* is on, which is the default.
+**Hosting.** Start a Realms server as normal. Friends (saved friend codes, Darktide friends, party members and the last eight players you connected with) are let in automatically while *Auto-accept friends* is on, which is the default. If hosting stutters about once a minute and you have a large friends list, raise *Friends list refetch (seconds)*.
 
 A join request appears in the Requests tab on the mission preparation screen, or as a notification on the right of the screen anywhere else, when:
 

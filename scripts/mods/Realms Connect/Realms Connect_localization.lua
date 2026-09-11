@@ -122,6 +122,12 @@ return {
 	saved_codes_tooltip = {
 		en = "Friend codes to keep an eye on, comma separated. Bounded by the Vox Manifold watch cap.",
 	},
+	rc_friend_refetch_seconds = {
+		en = "Friends list refetch (seconds)",
+	},
+	friend_refetch_seconds_tooltip = {
+		en = "While you host a Realm with a free seat, how often the full friends list is fetched again. Each fetch can briefly freeze the game when you have many friends. Raise this if hosting stutters about once a minute.",
+	},
 	rc_auto_accept_friends = {
 		en = "Auto-accept friends",
 	},

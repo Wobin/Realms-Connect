@@ -66,6 +66,7 @@ function M.new(deps)
     local in_mission = deps.in_mission or false_fn
     local is_friend = deps.is_friend or false_fn
     local is_party = deps.is_party or false_fn
+    local is_remembered = deps.is_remembered or false_fn
 
     local a = {}
 
@@ -94,6 +95,11 @@ function M.new(deps)
         return false
     end
 
+    function a.is_known_friend(ref)
+        return saved_contains(ref) or is_friend(ref) == true or is_party(ref) == true
+            or is_remembered(ref) == true
+    end
+
     function a.decide(ref)
         local mode = advertise_mode()
 
@@ -101,7 +107,7 @@ function M.new(deps)
             return DECISION_REFUSE
         end
 
-        local known = saved_contains(ref) or is_friend(ref) == true or is_party(ref) == true
+        local known = a.is_known_friend(ref)
 
         if mode == MODE_FRIENDS then
             if not known then
@@ -128,14 +134,6 @@ function M.new(deps)
 
     function a.accepting_in_mission()
         return in_mission() ~= true or auto_accept_in_mission() == true
-    end
-
-    function a.in_mission()
-        return in_mission() == true
-    end
-
-    function a.is_known_friend(ref)
-        return saved_contains(ref) or is_friend(ref) == true
     end
 
     function a.beacon_action(is_hosting, responder_state, join_owns_channel)

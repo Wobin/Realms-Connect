@@ -47,6 +47,13 @@ return {
 				tooltip = "saved_codes_tooltip",
 			},
 			{
+				setting_id = "rc_friend_refetch_seconds",
+				type = "numeric",
+				range = {60, 600},
+				default_value = 60,
+				tooltip = "friend_refetch_seconds_tooltip",
+			},
+			{
 				setting_id = "rc_auto_accept_friends",
 				type = "checkbox",
 				default_value = true,

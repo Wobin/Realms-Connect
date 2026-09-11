@@ -1,13 +1,31 @@
 --[[
     Name: Realms Connect
     Author: Wobin
-    Date: 2026-08-31
+    Date: 2026-09-11
 --]]
 
 local type = type
 local tostring = tostring
 local pairs = pairs
 local string_format = string.format
+local debug_getinfo = debug.getinfo
+
+local function root_dir()
+    local source = debug_getinfo(1, "S").source
+    local path = source:match("^@(.*)$") or source
+    local dir = path:match("^(.*)[\\/][^\\/]+$")
+    return dir:match("^(.*)[\\/][^\\/]+$")
+end
+
+local function load_sibling(name)
+    local host = rawget(_G, "get_mod") and get_mod("Realms Connect")
+    if host and host.io_dofile then
+        return host:io_dofile("Realms Connect/scripts/mods/Realms Connect/" .. name)
+    end
+    return dofile(root_dir() .. "\\" .. name .. ".lua")
+end
+
+local ref_key = load_sibling("util/ref").key
 
 local ENVELOPE_OVERHEAD_BYTES = 19
 
@@ -29,13 +47,6 @@ function M.new(deps)
     local watched_refs = {}
     local temp_refs = {}
     local warned_version = {}
-
-    local function ref_key(ref)
-        if type(ref) ~= "table" or type(ref.id) ~= "string" then
-            return nil
-        end
-        return tostring(ref.platform) .. ":" .. ref.id
-    end
 
     local function version_text()
         return tostring(mod and mod.version or "")

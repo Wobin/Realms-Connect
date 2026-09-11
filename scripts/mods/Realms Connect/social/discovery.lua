@@ -1,7 +1,7 @@
 --[[
     Name: Realms Connect
     Author: Wobin
-    Date: 2026-09-08
+    Date: 2026-09-11
 --]]
 
 local type = type
@@ -10,6 +10,24 @@ local pairs = pairs
 local pcall = pcall
 local table_concat = table.concat
 local table_sort = table.sort
+local debug_getinfo = debug.getinfo
+
+local function root_dir()
+    local source = debug_getinfo(1, "S").source
+    local path = source:match("^@(.*)$") or source
+    local dir = path:match("^(.*)[\\/][^\\/]+$")
+    return dir:match("^(.*)[\\/][^\\/]+$")
+end
+
+local function load_sibling(name)
+    local host = rawget(_G, "get_mod") and get_mod("Realms Connect")
+    if host and host.io_dofile then
+        return host:io_dofile("Realms Connect/scripts/mods/Realms Connect/" .. name)
+    end
+    return dofile(root_dir() .. "\\" .. name .. ".lua")
+end
+
+local ref_key = load_sibling("util/ref").key
 
 local M = {}
 
@@ -46,13 +64,6 @@ local function split_codes(text)
         end
     end
     return out
-end
-
-local function ref_key(ref)
-    if type(ref) ~= "table" or type(ref.id) ~= "string" then
-        return nil
-    end
-    return tostring(ref.platform) .. ":" .. ref.id
 end
 
 local function player_account_id(player)
@@ -147,18 +158,29 @@ function M.new(deps)
     local resolver = deps.resolver
     local cap = deps.cap or DEFAULT_CAP
     local refresh_interval = deps.refresh_interval or DEFAULT_REFRESH_INTERVAL
-    local force_interval = deps.force_interval or DEFAULT_FORCE_INTERVAL
+    local force_interval_dep = deps.force_interval or DEFAULT_FORCE_INTERVAL
     local force_gate = deps.force_gate
     local gated_refresh_interval = deps.gated_refresh_interval or DEFAULT_GATED_REFRESH_INTERVAL
     local log = deps.log or noop
     local liveness = deps.liveness or { of = no_liveness }
+
+    local function force_interval()
+        if type(force_interval_dep) ~= "function" then
+            return force_interval_dep
+        end
+        local value = force_interval_dep()
+        if type(value) == "number" and value > 0 then
+            return value
+        end
+        return DEFAULT_FORCE_INTERVAL
+    end
 
     local d = {}
 
     local stopped = false
     local generation = 0
     local next_refresh_at = 0
-    local next_force_at = 0
+    local last_force_at = -math.huge
     local last_refresh_at = -math.huge
     local force_next = false
     local refresh_now = false
@@ -455,12 +477,12 @@ function M.new(deps)
         local gen = generation
 
         local force = force_next
-        if not force and clock() >= next_force_at then
+        if not force and clock() >= last_force_at + force_interval() then
             force = type(force_gate) ~= "function" or force_gate() == true
         end
 
         if force then
-            next_force_at = clock() + force_interval
+            last_force_at = clock()
             force_next = false
         end
 

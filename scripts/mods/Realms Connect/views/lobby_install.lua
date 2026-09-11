@@ -1,7 +1,7 @@
 --[[
     Name: Realms Connect
     Author: Wobin
-    Date: 2026-09-02
+    Date: 2026-09-11
 --]]
 
 local type = type
@@ -15,6 +15,7 @@ local M = {}
 
 local VIEW_CLASS = "RealmsPreparationView"
 local VIEW_NAME = "realms_preparation_view"
+local ORIGINAL_KEY = "_rc_realms_present_mission_rows"
 
 M.VIEW_NAME = VIEW_NAME
 
@@ -203,8 +204,7 @@ function M.install(deps)
     local present_content
     local set_scrollbar_hidden
     local realms_present_mission_rows
-
-    local rc_wrappers = setmetatable({}, { __mode = "k" })
+    local installed_wrapper
 
     local function ensure_class_patch()
         if realms_present_mission_rows then
@@ -216,11 +216,8 @@ function M.install(deps)
             return
         end
 
-        if rc_wrappers[class._present_mission_rows] then
-            return
-        end
-
-        local original = class._present_mission_rows
+        local original = class[ORIGINAL_KEY] or class._present_mission_rows
+        class[ORIGINAL_KEY] = original
         realms_present_mission_rows = original
 
         local wrapper = function(self, force)
@@ -231,10 +228,22 @@ function M.install(deps)
             return original(self, force)
         end
 
-        rc_wrappers[wrapper] = true
+        installed_wrapper = wrapper
         class._present_mission_rows = wrapper
 
         log("lobby: took over _present_mission_rows so Realms' periodic refresh cannot overwrite the requests tab")
+    end
+
+    local function uninstall()
+        local class = rawget(_G, VIEW_CLASS)
+        if type(class) == "table" and type(class[ORIGINAL_KEY]) == "function" then
+            if class._present_mission_rows == installed_wrapper then
+                class._present_mission_rows = class[ORIGINAL_KEY]
+            end
+            class[ORIGINAL_KEY] = nil
+        end
+        installed_wrapper = nil
+        realms_present_mission_rows = nil
     end
 
     local function definitions_for(view)
@@ -607,7 +616,7 @@ function M.install(deps)
 
     log("lobby: the Realms lobby patch is installed, its widgets appear once the lobby opens")
 
-    return { view_name = VIEW_NAME, tick = tick }
+    return { view_name = VIEW_NAME, tick = tick, patch_class = ensure_class_patch, uninstall = uninstall }
 end
 
 return M

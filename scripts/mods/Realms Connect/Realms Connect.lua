@@ -241,6 +241,14 @@ local function realms_is_advertisable_host()
 end
 
 local function realms_host_connection()
+    local session = realms_session()
+    if not session or type(session.is_active_host) ~= "function" then
+        return nil
+    end
+    local ok, hosting = pcall(session.is_active_host)
+    if not ok or hosting ~= true then
+        return nil
+    end
     local connection_manager = Managers.connection
     local connection = connection_manager and connection_manager._connection_host
     if type(connection) ~= "table" then
@@ -342,6 +350,8 @@ local function host_circumstances()
     return label_resolver.host_circumstances(data)
 end
 
+local advertise_instance
+
 local function host_in_mission()
     local connection = realms_host_connection()
     if not connection or type(connection.mission_name) ~= "function" then
@@ -383,6 +393,10 @@ local function realms_host_port()
     return connection_number(connection, "local_port")
 end
 
+local function accepting_in_mission()
+    return advertise_instance == nil or advertise_instance.accepting_in_mission()
+end
+
 local function listen_gate()
     local connection = realms_host_connection()
     if not connection then
@@ -395,7 +409,7 @@ local function listen_gate()
         return listen_module.GATE_FULL
     end
 
-    if host_in_mission() and mod:get("rc_auto_accept_friends_in_mission") ~= true then
+    if not accepting_in_mission() then
         return listen_module.GATE_FULL
     end
 
@@ -403,22 +417,7 @@ local function listen_gate()
 end
 
 local function should_force_friend_refresh()
-    local connection = realms_host_connection()
-    if not connection then
-        return false
-    end
-
-    local connected = connection_number(connection, "num_connections")
-    local max_members = connection_number(connection, "max_members")
-    if connected and max_members and connected + 1 >= max_members then
-        return false
-    end
-
-    if host_in_mission() and mod:get("rc_auto_accept_friends_in_mission") ~= true then
-        return false
-    end
-
-    return true
+    return listen_gate() == listen_module.GATE_OPEN
 end
 
 local function host_beacon_info()
@@ -447,7 +446,7 @@ local function host_beacon_info()
     info.locked = type(password) == "string" and password ~= ""
 
     info.in_progress = host_in_mission()
-    info.accepting = not info.in_progress or mod:get("rc_auto_accept_friends_in_mission") == true
+    info.accepting = accepting_in_mission()
 
     local main_circumstance, extra_circumstances = host_circumstances()
     info.circumstance = idhash.hash(main_circumstance)
@@ -460,7 +459,6 @@ local manifold
 local presence_instance
 local endpoints_instance
 local identity_instance
-local advertise_instance
 local discovery_instance
 local resolver_instance
 local responder_instance
@@ -515,6 +513,7 @@ local enabled = true
 local host_watched = {}
 local host_watch_signature
 local session_was_ready
+local discovery_running = true
 local scan_instance
 local listen_instance
 local beacon_signature
@@ -670,10 +669,6 @@ local function fire_pending_knock()
 end
 
 local function begin_join_with_ref(ref)
-    if discovery_instance and type(discovery_instance.force_refresh) == "function" then
-        discovery_instance.force_refresh()
-    end
-
     if endpoints_instance then
         local state = endpoints_instance.status()
         if state == "idle" or state == "stale" or state == "degraded" then
@@ -1517,9 +1512,7 @@ local function build_knock_notice()
     return knock_notice
 end
 
-local function ref_key(ref)
-    return tostring(ref.platform) .. ":" .. tostring(ref.id)
-end
+local ref_key = load_module("util/ref").key
 
 local function confirmed_signature(confirmed)
     local keys = {}
@@ -1609,17 +1602,35 @@ end
 
 function remembered.list()
     local raw = mod:get(remembered.KEY)
-    local out = {}
-    if type(raw) ~= "string" or raw == "" then
-        return out
+    if remembered.parsed and raw == remembered.raw then
+        return remembered.parsed
     end
-    for id in string.gmatch(raw, "[^,]+") do
-        local trimmed = string_match(id, "^%s*(.-)%s*$")
-        if trimmed and trimmed ~= "" then
-            out[#out + 1] = trimmed
+    local out = {}
+    if type(raw) == "string" and raw ~= "" then
+        for id in string.gmatch(raw, "[^,]+") do
+            local trimmed = string_match(id, "^%s*(.-)%s*$")
+            if trimmed and trimmed ~= "" then
+                out[#out + 1] = trimmed
+            end
         end
     end
+    remembered.raw = raw
+    remembered.parsed = out
     return out
+end
+
+function remembered.contains(ref)
+    local id = type(ref) == "table" and ref.id or nil
+    if type(id) ~= "string" then
+        return false
+    end
+    local list = remembered.list()
+    for i = 1, #list do
+        if list[i] == id then
+            return true
+        end
+    end
+    return false
 end
 
 function remembered.add(ref)
@@ -1655,9 +1666,10 @@ local function sync_host_watches()
 
     local raw_codes = mod:get("rc_saved_codes")
     local mode = effective_advertise_mode()
+    local hosting = realms_host_connection() ~= nil
     local confirmed = discovery_instance and discovery_instance.watched() or {}
     local known = remembered.list()
-    local signature = tostring(mode) .. "|" .. tostring(raw_codes) .. "|" ..
+    local signature = tostring(hosting) .. "|" .. tostring(mode) .. "|" .. tostring(raw_codes) .. "|" ..
         table_concat(known, ",") .. "|" .. confirmed_signature(confirmed)
     if signature == host_watch_signature then
         return
@@ -1666,11 +1678,11 @@ local function sync_host_watches()
 
     local target = {}
     local ordered = {}
-    if mode ~= "off" then
+    if hosting and mode ~= "off" then
         for i = 1, #confirmed do
             local ref = confirmed[i].ref
             local key = ref_key(ref)
-            if not target[key] then
+            if key and not target[key] then
                 target[key] = ref
                 ordered[#ordered + 1] = key
             end
@@ -1678,7 +1690,7 @@ local function sync_host_watches()
         for i = 1, #known do
             local ref = { id = known[i] }
             local key = ref_key(ref)
-            if not target[key] then
+            if key and not target[key] then
                 target[key] = ref
                 ordered[#ordered + 1] = key
             end
@@ -2192,9 +2204,6 @@ mod.update = function(dt)
         return
     end
 
-    if session_was_ready == false and discovery_instance then
-        discovery_instance.resume()
-    end
     session_was_ready = true
 
     if endpoints_instance then
@@ -2235,7 +2244,17 @@ mod.update = function(dt)
     end
 
     if discovery_instance then
-        discovery_instance.update()
+        local hosting = realms_host_connection() ~= nil
+        if hosting then
+            if discovery_instance.resume() then
+                log_gated("discovery: hosting a Realm, reading the friends list")
+            end
+            discovery_instance.update()
+        elseif discovery_running then
+            discovery_instance.stop()
+            log_gated("discovery: not hosting a Realm, the friends list is not read")
+        end
+        discovery_running = hosting
     end
 
     build_responder()
@@ -2274,7 +2293,7 @@ mod.update = function(dt)
     if presence_instance then
         for ref, payload in presence_instance.read_all() do
             if payload.k == protocol.KIND_KNOCK then
-                if responder_instance and not knock_owns_the_channel() then
+                if responder_instance and not knock_owns_the_channel() and realms_host_connection() then
                     responder_instance.on_knock(ref, payload)
                 end
             elseif payload.k == protocol.KIND_ACK or payload.k == protocol.KIND_PENDING then
@@ -2422,6 +2441,20 @@ local function manifold_missing_functions(api)
 end
 
 
+local function manifold_watch_caps()
+    if type(manifold) ~= "table" or type(manifold.usage) ~= "function" then
+        return K.DISCOVERY_CAP, K.LISTEN_CAP
+    end
+    local ok, usage = pcall(manifold.usage)
+    local watches = ok and type(usage) == "table" and usage.watches or nil
+    if type(watches) ~= "table" then
+        return K.DISCOVERY_CAP, K.LISTEN_CAP
+    end
+    local permanent = type(watches.cap) == "number" and watches.cap or K.DISCOVERY_CAP
+    local temp = type(watches.temp_cap) == "number" and watches.temp_cap or K.LISTEN_CAP
+    return permanent, temp
+end
+
 local function initialize()
     local vm = get_mod("Vox Manifold")
     manifold = vm and vm.api
@@ -2434,6 +2467,8 @@ local function initialize()
             ". Realms Connect needs Vox Manifold 2.2 or newer, from Nexus. " ..
             "Presence matchmaking is disabled for this session; a direct ip:port still works.")
     end
+
+    local permanent_cap, temp_cap = manifold_watch_caps()
 
     presence_instance = presence.new({
         mod = mod,
@@ -2524,9 +2559,10 @@ local function initialize()
         clock = clock,
         saved_codes = function() return mod:get("rc_saved_codes") end,
         resolver = resolver_instance,
-        cap = K.DISCOVERY_CAP,
+        cap = permanent_cap,
         refresh_interval = K.DISCOVERY_REFRESH_INTERVAL,
         force_gate = should_force_friend_refresh,
+        force_interval = function() return mod:get("rc_friend_refetch_seconds") end,
         liveness = liveness_module.new({}),
         log = log_gated,
     })
@@ -2540,6 +2576,7 @@ local function initialize()
         in_mission = host_in_mission,
         is_friend = discovery_instance.is_friend,
         is_party = discovery_instance.is_party,
+        is_remembered = remembered.contains,
     })
 
     listen_instance = listen_module.new({
@@ -2551,7 +2588,7 @@ local function initialize()
         end,
         scan_active = scan_is_running,
         clock = clock,
-        cap = K.LISTEN_CAP,
+        cap = temp_cap,
         refresh_interval = K.LISTEN_REFRESH_INTERVAL,
         knock_deadline = K.KNOCK_TIMEOUT_SECONDS,
         joins_open = listen_gate,
@@ -2634,11 +2671,6 @@ local function install_view_patches()
             text_input_utils = text_input_utils,
             make_panel = function()
                 return join_panel.new({ api = api, localize = localize })
-            end,
-            on_opened = function()
-                if discovery_instance and type(discovery_instance.force_refresh) == "function" then
-                    discovery_instance.force_refresh()
-                end
             end,
         })
     else
@@ -2777,6 +2809,12 @@ local function teardown(exit_game)
     end
 
     destroy_browser(exit_game)
+
+    for i = 1, #view_patches do
+        if type(view_patches[i].uninstall) == "function" then
+            view_patches[i].uninstall()
+        end
+    end
 
     if diag_state.job then
         print("[Realms Connect] on_unload: a diagnostic sweep is still running natively with no DiagCancel export; its result will be picked up on the next load instead of being abandoned silently")

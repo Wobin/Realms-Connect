@@ -1,7 +1,7 @@
 --[[
     Name: Realms Connect
     Author: Wobin
-    Date: 2026-09-01
+    Date: 2026-09-11
 --]]
 
 local type = type
@@ -11,6 +11,24 @@ local table_sort = table.sort
 local table_concat = table.concat
 local math_ceil = math.ceil
 local string_format = string.format
+local debug_getinfo = debug.getinfo
+
+local function root_dir()
+    local source = debug_getinfo(1, "S").source
+    local path = source:match("^@(.*)$") or source
+    local dir = path:match("^(.*)[\\/][^\\/]+$")
+    return dir:match("^(.*)[\\/][^\\/]+$")
+end
+
+local function load_sibling(name)
+    local host = rawget(_G, "get_mod") and get_mod("Realms Connect")
+    if host and host.io_dofile then
+        return host:io_dofile("Realms Connect/scripts/mods/Realms Connect/" .. name)
+    end
+    return dofile(root_dir() .. "\\" .. name .. ".lua")
+end
+
+local ref_key = load_sibling("util/ref").key
 
 local M = {}
 
@@ -97,12 +115,6 @@ local function noop() end
 local function false_fn() return false end
 local function empty_list() return {} end
 
-local function ref_key(ref)
-    if type(ref) ~= "table" or type(ref.id) ~= "string" then
-        return nil
-    end
-    return tostring(ref.platform) .. ":" .. ref.id
-end
 
 local function rank_of(entry)
     if entry.party then
