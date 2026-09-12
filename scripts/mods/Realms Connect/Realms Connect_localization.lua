@@ -54,7 +54,7 @@ return {
 		en = "Friend code, friend code",
 	},
 	manual_address_tooltip = {
-		en = "An ip:port of your OWN that you have already forwarded on your router. It is advertised ahead of everything the mod works out for itself, so people joining you try it first. This is not a dial-out box: to connect straight to somebody, type their ip:port into the friend code field on the join screen.",
+		en = "The public ip:port that reaches this PC: a port you forwarded on your router, or a UDP tunnel's public address. Its port must reach the port Realms hosts on. People joining you try it first. To connect straight to somebody, type their ip:port into the friend code field on the join screen instead.",
 	},
 	rc_port_mapping = {
 		en = "Router port mapping",
@@ -79,6 +79,15 @@ return {
 	},
 	chat_reach_cgnat = {
 		en = "Realms Connect: carrier-grade NAT. Your provider shares one address between many homes, so no port can be forwarded to you and hosting will usually fail. Ask the other person to host instead. Public {public}. {detail}",
+	},
+	chat_manual_address_unusable = {
+		en = "Realms Connect: Manual address {address} only points at this PC, so it is not given to anyone. Set it to the public address of your port forward or tunnel.",
+	},
+	chat_manual_address_local = {
+		en = "Realms Connect: Manual address {address} only works for players on your own network. For friends elsewhere, set it to the public address of your port forward or tunnel.",
+	},
+	chat_manual_address_port = {
+		en = "Realms Connect: Manual address uses port {port}, but Realms is hosting on port {host_port}. Unless your port forward or tunnel changes the port, make them match.",
 	},
 	chat_join_no_answer = {
 		en = "Realms Connect: {host} did not answer in 30s.",

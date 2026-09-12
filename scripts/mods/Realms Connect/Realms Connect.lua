@@ -1,7 +1,7 @@
 --[[
     Name: Realms Connect
     Author: Wobin
-    Date: 2026-09-11
+    Date: 2026-09-12
 --]]
 
 local mod = get_mod("Realms Connect")
@@ -1659,6 +1659,38 @@ function remembered.add(ref)
     return true
 end
 
+local manual_warning = {}
+
+local function warn_about_manual_address()
+    local connection = realms_host_connection()
+    if not connection then
+        return
+    end
+
+    local raw = mod:get("rc_manual_address")
+    local manual = type(raw) == "string" and string_match(raw, "^%s*(.-)%s*$") or ""
+    local host_port = connection_number(connection, "local_port")
+    if manual == manual_warning.text and host_port == manual_warning.port then
+        return
+    end
+    manual_warning.text = manual
+    manual_warning.port = host_port
+
+    if manual == "" then
+        return
+    end
+
+    local problem = candidates.manual_problem(manual, host_port)
+    if problem == candidates.MANUAL_UNUSABLE then
+        echo_localized("chat_manual_address_unusable", { address = manual })
+    elseif problem == candidates.MANUAL_LOCAL then
+        echo_localized("chat_manual_address_local", { address = manual })
+    elseif problem == candidates.MANUAL_PORT then
+        local _, port = candidates.parse(manual)
+        echo_localized("chat_manual_address_port", { port = port, host_port = host_port })
+    end
+end
+
 local function sync_host_watches()
     if not presence_instance or not advertise_instance then
         return
@@ -2273,6 +2305,7 @@ mod.update = function(dt)
     broadcast_was_active = broadcasting_now
 
     sync_host_watches()
+    warn_about_manual_address()
 
     if listen_instance then
         listen_instance.update()

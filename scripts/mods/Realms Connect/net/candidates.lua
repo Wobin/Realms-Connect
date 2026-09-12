@@ -1,7 +1,7 @@
 --[[
     Name: Realms Connect
     Author: Wobin
-    Date: 2026-09-04
+    Date: 2026-09-12
 --]]
 
 local string_match = string.match
@@ -68,7 +68,7 @@ function M.build(sources)
         if m_ip then
             candidate = canonicalize_ip(m_ip) .. ":" .. m_port
         end
-        if M.parse(candidate) then
+        if M.manual_problem(candidate) ~= M.MANUAL_UNUSABLE then
             add_candidate(list, seen, candidate)
         end
     end
@@ -144,6 +144,40 @@ function M.is_carrier_nat_ip(text)
 
     local n = tonumber(second)
     return n ~= nil and n >= 64 and n <= 127
+end
+
+M.MANUAL_UNUSABLE = "unusable"
+M.MANUAL_LOCAL = "local"
+M.MANUAL_PORT = "port"
+
+local UNUSABLE_PATTERNS = {
+    "^127%.",
+    "^0%.",
+    "^255%.",
+}
+
+function M.manual_problem(text, host_port)
+    local ip, port = M.parse(text)
+    if not ip then
+        return M.MANUAL_UNUSABLE
+    end
+    ip = canonicalize_ip(ip)
+
+    for i = 1, #UNUSABLE_PATTERNS do
+        if ip:find(UNUSABLE_PATTERNS[i]) then
+            return M.MANUAL_UNUSABLE
+        end
+    end
+
+    if M.is_private_ip(ip) or M.is_carrier_nat_ip(ip) then
+        return M.MANUAL_LOCAL
+    end
+
+    if type(host_port) == "number" and port ~= host_port then
+        return M.MANUAL_PORT
+    end
+
+    return nil
 end
 
 function M.describe(list)

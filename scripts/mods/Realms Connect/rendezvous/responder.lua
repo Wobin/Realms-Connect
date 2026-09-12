@@ -1,7 +1,7 @@
 --[[
     Name: Realms Connect
     Author: Wobin
-    Date: 2026-09-07
+    Date: 2026-09-12
 --]]
 
 local type = type
@@ -115,6 +115,8 @@ function M.new(deps)
     local replay_logged = {}
     local seen_order = {}
     local refused_logged = {}
+    local unreachable_handled = {}
+    local unreachable_order = {}
 
     local process_next
 
@@ -302,7 +304,17 @@ function M.new(deps)
             return
         end
 
-        log("responder: " .. tostring(nonce_key(ref, report.nonce)) ..
+        local key = nonce_key(ref, report.nonce)
+        if key == nil or unreachable_handled[key] then
+            return
+        end
+        unreachable_handled[key] = true
+        unreachable_order[#unreachable_order + 1] = key
+        if #unreachable_order > DEFAULT_SEEN_CAP then
+            unreachable_handled[table_remove(unreachable_order, 1)] = nil
+        end
+
+        log("responder: " .. tostring(key) ..
             " reported they could not reach any of the " .. tostring(report.tried) ..
             " candidate(s) we acked")
         on_peer_unreachable(ref, report.nonce, report.tried)
