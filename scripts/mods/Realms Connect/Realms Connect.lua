@@ -1,7 +1,7 @@
 --[[
     Name: Realms Connect
     Author: Wobin
-    Date: 2026-09-12
+    Date: 2026-09-13
 --]]
 
 local mod = get_mod("Realms Connect")
@@ -696,6 +696,9 @@ local function begin_join_with_ref(ref)
         presence = presence_instance,
         protocol = protocol,
         clock = clock,
+        own_public_ip = function()
+            return endpoints_instance and endpoints_instance.public_ip() or nil
+        end,
         join = realms_join,
         log = log_gated,
         candidates_provider = function()

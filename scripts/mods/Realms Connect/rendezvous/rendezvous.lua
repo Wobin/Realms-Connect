@@ -1,7 +1,7 @@
 --[[
     Name: Realms Connect
     Author: Wobin
-    Date: 2026-08-31
+    Date: 2026-09-13
 --]]
 
 local type = type
@@ -147,6 +147,7 @@ function M.new(deps)
     local busy_retry_delay = deps.busy_retry_delay or DEFAULT_BUSY_RETRY_DELAY
     local max_busy_retries = deps.max_busy_retries or MAX_BUSY_RETRIES
     local accept_wire_allowance = deps.accept_wire_allowance or DEFAULT_ACCEPT_WIRE_ALLOWANCE
+    local own_public_ip = deps.own_public_ip or noop
 
     local r = {}
 
@@ -390,7 +391,7 @@ function M.new(deps)
         end
 
         t_punch = clock() + delay
-        ack_cands = cands
+        ack_cands = candidates.dial_order(cands, own_public_ip(), candidates_provider and candidates_provider())
         punch.schedule(t_punch, cands)
         state = STATE_PUNCHING
         deadline = t_punch + punch_grace

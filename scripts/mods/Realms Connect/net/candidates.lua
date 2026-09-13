@@ -1,7 +1,7 @@
 --[[
     Name: Realms Connect
     Author: Wobin
-    Date: 2026-09-12
+    Date: 2026-09-13
 --]]
 
 local string_match = string.match
@@ -144,6 +144,54 @@ function M.is_carrier_nat_ip(text)
 
     local n = tonumber(second)
     return n ~= nil and n >= 64 and n <= 127
+end
+
+local function subnet24(ip)
+    return string_match(ip, "^(%d+%.%d+%.%d+)%.%d+$")
+end
+
+function M.dial_order(host_cands, own_public_ip, own_cands)
+    local out = {}
+    if type(host_cands) ~= "table" then
+        return out
+    end
+
+    local own_public = type(own_public_ip) == "string" and canonicalize_ip(own_public_ip) or nil
+    local shared_public = false
+    local host_has_public = false
+    for i = 1, #host_cands do
+        local ip = M.parse(host_cands[i])
+        if ip and not M.is_private_ip(ip) then
+            host_has_public = true
+            if canonicalize_ip(ip) == own_public then
+                shared_public = true
+            end
+        end
+    end
+
+    local drop_private = own_public ~= nil and host_has_public and not shared_public
+    local own_subnets = {}
+    if type(own_cands) == "table" then
+        for i = 1, #own_cands do
+            local ip = M.parse(own_cands[i])
+            if ip and M.is_private_ip(ip) then
+                own_subnets[subnet24(canonicalize_ip(ip))] = true
+            end
+        end
+    end
+
+    for i = 1, #host_cands do
+        local candidate = host_cands[i]
+        local ip = M.parse(candidate)
+        local keep = true
+        if drop_private and ip and M.is_private_ip(ip) then
+            keep = own_subnets[subnet24(canonicalize_ip(ip))] == true
+        end
+        if keep then
+            out[#out + 1] = candidate
+        end
+    end
+    return out
 end
 
 M.MANUAL_UNUSABLE = "unusable"

@@ -1,7 +1,7 @@
 --[[
     Name: Realms Connect
     Author: Wobin
-    Date: 2026-09-07
+    Date: 2026-09-13
 --]]
 
 local string_format = string.format
@@ -330,6 +330,57 @@ local function render_engine(lines, report, ro)
     end
 end
 
+local FIREWALL_VERDICT_TEXT = {
+    allowed = "allows incoming game traffic",
+    default_allow = "allows all incoming traffic by default",
+    firewall_off = "firewall is off",
+    block_all = "BLOCKS all incoming connections (block-all setting)",
+    blocked_by_rule = "BLOCKS incoming game traffic (a block rule matches)",
+    no_allow_rule = "BLOCKS incoming game traffic (no rule allows it)",
+}
+
+local FIREWALL_BLOCKING = { block_all = true, blocked_by_rule = true, no_allow_rule = true }
+
+local function render_firewall(lines, report)
+    push(lines, "")
+    push(lines, "-- Windows Firewall --")
+    local fw = report.windows_firewall
+    if type(fw) ~= "table" then
+        push(lines, "not checked")
+        return
+    end
+    if fw.error then
+        push(lines, "not checked: " .. tostring(fw.error))
+        return
+    end
+    local port = tonumber(fw.port) or 0
+    push(lines, "program: " .. tostring(fw.exe) .. ", UDP port: " .. (port > 0 and tostring(port) or "not hosting"))
+    local profiles = type(fw.profiles) == "table" and fw.profiles or {}
+    for _, name in ipairs({ "public", "private", "domain" }) do
+        local p = profiles[name]
+        if type(p) == "table" then
+            local text = FIREWALL_VERDICT_TEXT[p.verdict] or tostring(p.verdict)
+            local rules = type(p.rules) == "table" and #p.rules or 0
+            push(lines, name .. ": " .. text .. " (" .. tostring(rules) .. " matching rule(s))")
+        end
+    end
+end
+
+local function firewall_blocking_profiles(report)
+    local fw = report.windows_firewall
+    local out = {}
+    if type(fw) ~= "table" or type(fw.profiles) ~= "table" then
+        return out
+    end
+    for _, pair in ipairs({ { "private", "Private" }, { "public", "Public" } }) do
+        local p = fw.profiles[pair[1]]
+        if type(p) == "table" and FIREWALL_BLOCKING[p.verdict] then
+            out[#out + 1] = pair[2]
+        end
+    end
+    return out
+end
+
 local function is_backend_join_failure(report)
     local b = report.backend
     if not b or not b.connection then
@@ -402,6 +453,7 @@ function M.render(report, opts)
         render_filtering(lines, report, ro)
         render_cgnat(lines, report, ro)
         render_engine(lines, report, ro)
+        render_firewall(lines, report)
         if report.backend then
             render_backend(lines, report, ro)
         end
@@ -430,14 +482,20 @@ function M.summary(report)
         local suffix = dlc and (" for '" .. tostring(dlc) .. "'") or ""
         return "Realms Connect diagnostics: peer connection succeeded; join failed at the backend DLC licence check" .. suffix .. ". Not a reachability problem. Full report in the log."
     end
+    local firewall = ""
+    local blocking = firewall_blocking_profiles(report)
+    if #blocking > 0 then
+        firewall = " Windows Firewall blocks incoming game traffic on " .. table_concat(blocking, " and ") ..
+            " networks; if yours is one, allow Darktide through Windows Firewall to host."
+    end
     local verdict = report.cgnat and report.cgnat.verdict
     if verdict == "cgnat" then
-        return "Realms Connect diagnostics: you appear to be behind CGNAT; you can join but likely cannot host through tier 1. Full report in the log."
+        return "Realms Connect diagnostics: you appear to be behind CGNAT; you can join but likely cannot host through tier 1." .. firewall .. " Full report in the log."
     end
     if report.igd and report.igd.location then
-        return "Realms Connect diagnostics: UPnP IGD found and reachable. Full report in the log."
+        return "Realms Connect diagnostics: UPnP IGD found and reachable." .. firewall .. " Full report in the log."
     end
-    return "Realms Connect diagnostics complete. Full report in the log."
+    return "Realms Connect diagnostics complete." .. firewall .. " Full report in the log."
 end
 
 return M
